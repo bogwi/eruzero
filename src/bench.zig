@@ -125,9 +125,9 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
     timer = try std.time.Timer.start();
     start = timer.lap();
 
-    // Cycle of 100 operations each
+    // Cycle of 198 operations each
     k = 0; // helper coefficient to get the keys rotating
-    for (0..N / 100) |i| {
+    for (0..N / 198) |i| {
 
         // Read 1
         for (keys.items[i + k .. i + k + 1]) |key| {
