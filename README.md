@@ -126,6 +126,7 @@ We have this on u64 keys, Wyhash for both maps, gpa allocator, ReleaseFast mode,
 |RG           |      36.86|   0.271328|
 |aggregate    |      16.78|   2.384107|
 
+
                      HASHMAP BENCHMARK|
              100_000_000 ops:each test|
 
