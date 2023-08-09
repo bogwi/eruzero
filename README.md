@@ -55,7 +55,7 @@ A scenario where the map is used to gather large amounts of data under a short b
 
 All tests save *RG* are designed to keep the map small. The keys are put on rotation, so the tests are tombstone-heavy. Especially *EXH* test. At the test's end, on the default 1M ops, the map has wrenched with 980k tombstones under the size of only 1! 
 
-Benchmark against ZIG's HashMap can be invoked in the command line via
+Benchmark against ZIG's both HashMap and ArrayHashMap can be invoked in the command line via
 
 ```
 zig build bench
@@ -68,8 +68,9 @@ For each map, tests run as four independent loops by 100 ops each till the speci
 
 We have this on u64 keys, Wyhash for both maps, gpa allocator, ReleaseFast mode, and Apple M1 laptop. If you have build a hashmap that supports Zig's std:HashMap API and want it to be included in the benchmark, throw a word. You are very much welcome.
 
-Tp: Throughput: millions of operations per second.\
-Rt: Runtime   : time spent on the test, in seconds
+*Tp*: Throughput: millions of operations per second.\
+*Rt*: Runtime   : time spent on the test, in seconds.\
+*aggregate*: This is an absolute measurement of an individual hashmap's *throughput* (total number of ops the map has engaged through the four tests in a row divided by the combined *runtime*) contrary to single tests measuring relative performances. The higher, the better.
  
 ```
                      HASHMAP BENCHMARK|
@@ -77,17 +78,26 @@ Rt: Runtime   : time spent on the test, in seconds
 
 |name         |Tp Mops:sec|    Rt :sec|
  =====================================
-|std:HashMap                          |
-|RH           |      54.72|   0.018275|
-|EX           |      12.92|   0.077403|
-|EXH          |       8.13|   0.123024|
-|RG           |      54.31|   0.018413|
-
 |eruZero                              |
-|RH           |     262.36|   0.003812|
-|EX           |      51.70|   0.019342|
-|EXH          |      48.39|   0.020664|
-|RG           |      50.91|   0.019644|
+|RH           |     251.46|   0.003977|
+|EX           |      63.16|   0.015832|
+|EXH          |      64.25|   0.015563|
+|RG           |      47.46|   0.021070|
+|aggregate    |      70.87|   0.056442|
+
+|ArrayHashMap                         |
+|RH           |     139.60|   0.007163|
+|EX           |      81.52|   0.012268|
+|EXH          |      81.63|   0.012250|
+|RG           |      24.66|   0.040544|
+|aggregate    |      55.38|   0.072225|
+
+|HashMap                              |
+|RH           |      62.65|   0.015961|
+|EX           |      13.04|   0.076673|
+|EXH          |       8.28|   0.120821|
+|RG           |      57.06|   0.017524|
+|aggregate    |      17.32|   0.230980|
 
 
                      HASHMAP BENCHMARK|
@@ -95,36 +105,58 @@ Rt: Runtime   : time spent on the test, in seconds
 
 |name         |Tp Mops:sec|    Rt :sec|
  =====================================
-|std:HashMap                          |
-|RH           |      62.77|   0.159300|
-|EX           |      13.12|   0.762084|
-|EXH          |       8.19|   1.221556|
-|RG           |      37.10|   0.269574|
-
 |eruZero                              |
-|RH           |     254.29|   0.039326|
-|EX           |      53.59|   0.186602|
-|EXH          |      47.77|   0.209336|
-|RG           |      40.26|   0.248383|
+|RH           |     256.21|   0.039030|
+|EX           |      62.19|   0.160800|
+|EXH          |      59.97|   0.166756|
+|RG           |      36.06|   0.277308|
+|aggregate    |      62.12|   0.643895|
 
+|ArrayHashMap                         |
+|RH           |     141.78|   0.070530|
+|EX           |      84.29|   0.118637|
+|EXH          |      83.80|   0.119330|
+|RG           |      17.61|   0.567956|
+|aggregate    |      45.64|   0.876454|
+
+|HashMap                              |
+|RH           |      64.22|   0.155703|
+|EX           |      13.20|   0.757729|
+|EXH          |       8.34|   1.199348|
+|RG           |      36.86|   0.271328|
+|aggregate    |      16.78|   2.384107|
 
                      HASHMAP BENCHMARK|
              100_000_000 ops:each test|
 
 |name         |Tp Mops:sec|    Rt :sec|
  =====================================
-|std:HashMap                          |
-|RH           |      62.37|   1.603271|
-|EX           |      13.15|   7.605165|
-|EXH          |       8.20|  12.202201|
-|RG           |      24.91|   4.013939|
-
 |eruZero                              |
-|RH           |     259.40|   0.385501|
-|EX           |      54.57|   1.832400|
-|EXH          |      48.54|   2.060109|
-|RG           |      35.20|   2.840792|
+|RH           |     258.13|   0.387407|
+|EX           |      65.79|   1.520057|
+|EXH          |      62.78|   1.592761|
+|RG           |      26.91|   3.715796|
+|aggregate    |      55.43|   7.216020|
+
+|ArrayHashMap                         |
+|RH           |     144.43|   0.692390|
+|EX           |      86.05|   1.162134|
+|EXH          |      84.47|   1.183876|
+|RG           |      17.79|   5.621304|
+|aggregate    |      46.19|   8.659705|
+
+|HashMap                              |
+|RH           |      64.08|   1.560445|
+|EX           |      13.21|   7.567642|
+|EXH          |       8.34|  11.988912|
+|RG           |      25.86|   3.867002|
+|aggregate    |      16.01|  24.984001|
 
 ```
+
+## Conclusions
+Based on the above data, if you are building an application that is *READ HEAVY*, consider using the eruZero map specifically designed for static reading purposes. If you are making an application akin to the *EXCHANGE* test, consider using ArrayHashMap, which provides excellent remove performance and has almost an instant iteration over the whole map (not tested here). In general, eruZero has completed four tests in the least amount of time.
+
+If you do not want external dependencies, still consider using Zig's superb ArrayHashMap, which is a way-way better alternative to Zig's HashMap. ArrayHashMap is understated in Zig's community (as it seems, scavenging the GitHub) because of the *RAPID GROW* test and other similar synthetic tests usually consisting of *grow-clear-put_again-get-iterate-remove* sequence used to benchmark hashmaps. And somehow, it landed into minds that the map that passes the sequence faster is better. Indeed, the ArrayHashMap will not stand on top in such synthetic tests. However, tests that do not measure the hashmap's performance to the number of deleted entries the map holds at runtime cannot represent the whole truth.
 
 

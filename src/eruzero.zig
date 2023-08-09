@@ -73,7 +73,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
             fn adjustSelf(db: *DB, self: *Self) !void {
                 if (!db.sizeOk()) {
                     try db.resize(self);
-                } else if (db.deleted > db.N() / 10 * 7) {
+                } else if (db.deleted > db.N()) {
                     db.limit -|= 1;
                     try db.resize(self);
                 }
@@ -312,7 +312,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
             key_ptr: *K,
             value_ptr: *V,
             found_existing: bool,
-            index: usize,
+            index: u64,
         };
 
         /// Searches for the entry associated with the key, and
@@ -422,7 +422,6 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
         /// Removes an entry associated with the key from the map. Returns *true* upon
         /// success; *false*, if not such entry exist.
         pub fn remove(self: *Self, key: K) bool {
-            self.dashboard.adjustSelf(self) catch unreachable;
             var itemPtr = self.getItemPtr(key);
 
             // catch possible null
@@ -438,7 +437,6 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
         /// Removes an entry associated with the key from the map,
         /// returning it back to the user.  If no such entry exist, returns *null*.
         pub fn fetchRemove(self: *Self, key: K) ?Entry {
-            self.dashboard.adjustSelf(self) catch unreachable;
             var itemPtr = self.getItemPtr(key);
 
             // catch possible null

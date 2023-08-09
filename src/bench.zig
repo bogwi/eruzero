@@ -23,6 +23,10 @@ const HELP =
     \\ 
 ;
 fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.Allocator) !void {
+    // Get a random generator for re-shuffling the keys
+    var prng = std.rand.DefaultPrng.init(std.math.absCast(std.time.timestamp()));
+    const random = prng.random();
+
     // ------------------ READ HEAVY -----------------//
     // ---- read 98, insert 1, remove 1, update 0 --- //
 
@@ -35,7 +39,8 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
     }
 
     // Start the timer
-    var sum: u128 = 0;
+    var time: u128 = 0;
+    var aggregate: u128 = 0;
     var timer = try std.time.Timer.start();
     var start = timer.lap();
 
@@ -54,10 +59,12 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
         assert(map.remove(keys.items[i]));
     }
     var end = timer.read();
-    sum += end - start;
+    time += end - start;
+    aggregate += time;
 
-    // Print stats
-    try writeStamps("RH", N, sum);
+    // Print stats //
+    // Test' individual stats
+    try writeStamps("RH", N, time);
 
     // Clear the map
     assert(map.count() == 98);
@@ -66,13 +73,16 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
     // ------------------ EXCHANGE -------------------//
     // -- read 10, insert 40, remove 40, update 10 -- //
 
+    // Re-shuffle the keys
+    random.shuffle(@TypeOf(keys.items[0]), keys.items);
+
     // Initial input for the test, 10 keys, because we start with read
     for (keys.items[0..10]) |key| {
         try map.put(key, key);
     }
 
-    // Clear the sum, re-start the timer
-    sum = 0;
+    // Clear the time, re-start the timer
+    time = 0;
     timer = try std.time.Timer.start();
     start = timer.lap();
 
@@ -103,10 +113,12 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
         k += 39;
     }
     end = timer.read();
-    sum += end - start;
+    time += end - start;
+    aggregate += time;
 
-    // Print stats
-    try writeStamps("EX", N, sum);
+    // Print stats //
+    // Test' individual stats
+    try writeStamps("EX", N, time);
 
     // Clear the map
     assert(map.count() == 10);
@@ -115,13 +127,16 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
     // --------------- EXCHANGE HEAVY --------------//
     // -- read 1, insert 98, remove 98, update 1 -- //
 
+    // Re-shuffle the keys
+    random.shuffle(@TypeOf(keys.items[0]), keys.items);
+
     // Initial input for the test, 10 keys, because we start with read
     for (keys.items[0..1]) |key| {
         try map.put(key, key);
     }
 
-    // Clear the sum, re-start the timer
-    sum = 0;
+    // Clear the time, re-start the timer
+    time = 0;
     timer = try std.time.Timer.start();
     start = timer.lap();
 
@@ -152,10 +167,12 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
         k += 97;
     }
     end = timer.read();
-    sum += end - start;
+    time += end - start;
+    aggregate += time;
 
-    // Print stats
-    try writeStamps("EXH", N, sum);
+    // Print stats //
+    // Test' individual stats
+    try writeStamps("EXH", N, time);
 
     // Clear the map
     assert(map.count() == 1);
@@ -163,6 +180,9 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
 
     // ---------------- RAPID GROW -----------------//
     // -- read 5, insert 80, remove 5, update 10 -- //
+
+    // Re-shuffle the keys
+    random.shuffle(@TypeOf(keys.items[0]), keys.items);
 
     // Accelerate by adjusting the map's initial capacity
     try map.ensureTotalCapacity(@intCast(N));
@@ -172,8 +192,8 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
         try map.put(key, key);
     }
 
-    // Clear the sum, re-start the timer
-    sum = 0;
+    // Clear the time, re-start the timer
+    time = 0;
     timer = try std.time.Timer.start();
     start = timer.lap();
 
@@ -204,10 +224,15 @@ fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.
         k += 79;
     }
     end = timer.read();
-    sum += end - start;
+    time += end - start;
+    aggregate += time;
 
-    // Print stats
-    try writeStamps("RG", N, sum);
+    // Print stats //
+    // Test' individual stats
+    try writeStamps("RG", N, time);
+
+    // Aggregate stats
+    try writeStamps("aggregate", N * 4, aggregate);
     try stdout.print("\n", .{});
 
     // Release the map
@@ -243,10 +268,43 @@ fn benchmark(N: usize) !void {
     }
     random.shuffle(T, keys.items);
 
+    // A wrapper around std.AutoArrayHashMap to ensure API compatibility
+    const AutoArrayHashMap = struct {
+        map: std.AutoArrayHashMap(T, T),
+
+        const Self = @This();
+
+        pub fn init(alloc: std.mem.Allocator) Self {
+            return Self{ .map = std.AutoArrayHashMap(T, T).init(alloc) };
+        }
+        pub fn deinit(self: *Self) void {
+            self.map.deinit();
+        }
+        pub fn put(self: *Self, key: T, val: T) !void {
+            return try self.map.put(key, val);
+        }
+        pub fn get(self: Self, key: T) ?T {
+            return self.map.get(key);
+        }
+        pub fn remove(self: *Self, key: T) bool {
+            return self.map.swapRemove(key);
+        }
+        pub fn ensureTotalCapacity(self: *Self, N_: usize) !void {
+            try self.map.ensureTotalCapacity(N_);
+        }
+        pub fn clearAndFree(self: *Self) void {
+            self.map.clearAndFree();
+        }
+        pub fn count(self: Self) u64 {
+            return self.map.count();
+        }
+    };
+
     // Hash tables to test
-    const MAPS = .{
-        .{ std.AutoHashMap(T, T), "std:HashMap" },
+    const MAPS = comptime .{
         .{ eruZero(T, T), "eruZero" },
+        .{ AutoArrayHashMap, "ArrayHashMap" },
+        .{ std.AutoHashMap(T, T), "HashMap" },
     };
 
     // Cosmetic function, number formatting
@@ -266,17 +324,12 @@ fn benchmark(N: usize) !void {
     }
 
     // no-inline testing
-    // try stdout.print("\n|{s: <36}|", .{MAPS[0][1]});
+    // try stdout.print("\n|{s: <37}|", .{MAPS[0][1]});
     // try testLoop(MAPS[0], N, keys, allocator);
-    // try stdout.print("\n|{s: <36}|", .{MAPS[1][1]});
+    // try stdout.print("\n|{s: <37}|", .{MAPS[1][1]});
     // try testLoop(MAPS[1], N, keys, allocator);
-}
-
-fn writeStamps(test_name: []const u8, N: usize, sum: u128) !void {
-    const throughput = @as(f64, @floatFromInt(N)) / toSeconds(sum) / 1000_000;
-    const runtime = toSeconds(sum);
-
-    try stdout.print("\n|{s: <13}|{d: >11.2}|{d: >11.6}|", .{ test_name, throughput, runtime });
+    // try stdout.print("\n|{s: <37}|", .{MAPS[2][1]});
+    // try testLoop(MAPS[2], N, keys, allocator);
 }
 
 fn pretty(N: usize, buffer: []u8, alloc: std.mem.Allocator) usize {
@@ -309,6 +362,17 @@ fn pretty(N: usize, buffer: []u8, alloc: std.mem.Allocator) usize {
 
 fn toSeconds(t: u128) f64 {
     return @as(f64, @floatFromInt(t)) / 1_000_000_000;
+}
+
+fn throughput(N: usize, time: u128) f64 {
+    return @as(f64, @floatFromInt(N)) / toSeconds(time) / 1_000_000;
+}
+
+fn writeStamps(test_name: []const u8, N: usize, time: u128) !void {
+    const throughput_ = throughput(N, time);
+    const runtime = toSeconds(time);
+
+    try stdout.print("\n|{s: <13}|{d: >11.2}|{d: >11.6}|", .{ test_name, throughput_, runtime });
 }
 
 pub fn main() !void {
