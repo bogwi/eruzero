@@ -70,7 +70,7 @@ We have this on u64 keys, Wyhash for both maps, gpa allocator, ReleaseFast mode,
 
 *Tp*: Throughput: millions of operations per second.\
 *Rt*: Runtime   : time spent on the test, in seconds.\
-*aggregate*: This is an absolute measurement of an individual hashmap's *throughput* (total number of ops the map has engaged through the four tests in a row divided by the combined *runtime*) contrary to single tests measuring relative performances. The higher, the better.
+*aggregate*: This is an absolute measurement of an individual hashmap's *throughput* (total number of ops the map has engaged through the four tests in a row divided by the combined *runtime*) contrary to single tests measuring relative performances.
  
 ```
                      HASHMAP BENCHMARK|
