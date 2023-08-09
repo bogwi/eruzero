@@ -1,5 +1,5 @@
 # eruZero
-Bullet-Train fast HashMap for Zig.
+Bullet-Train fast hashmap for Zig.
 
 eruZero aims to be a replacement for Zig's standard library HashMap.
 
