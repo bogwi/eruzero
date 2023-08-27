@@ -14,7 +14,6 @@ pub fn build(b: *std.Build) void {
         .optimize = .ReleaseSafe,
         .version = .{ .major = 1, .minor = 0, .patch = 0 },
     });
-    lib.emit_docs = .emit;
 
     b.installArtifact(lib);
 
