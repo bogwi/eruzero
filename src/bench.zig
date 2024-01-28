@@ -24,7 +24,7 @@ const HELP =
 ;
 fn testLoop(comptime map_: anytype, N: usize, keys: anytype, allocator: std.mem.Allocator) !void {
     // Get a random generator for re-shuffling the keys
-    var prng = std.rand.DefaultPrng.init(std.math.absCast(std.time.timestamp()));
+    var prng = std.rand.DefaultPrng.init(@abs(std.time.timestamp()));
     const random = prng.random();
 
     // ------------------ READ HEAVY -----------------//
@@ -250,12 +250,12 @@ fn benchmark(N: usize) !void {
     const allocator = gpa.allocator();
 
     // Get a random seed and set the random numbers generator
-    var dna = blk: {
+    const dna = blk: {
         var xy: u64 = undefined;
         try std.os.getrandom(std.mem.asBytes(&xy));
         break :blk xy;
     };
-    const pumpkin_seed = @as(u64, std.math.absCast(dna));
+    const pumpkin_seed = @as(u64, @abs(dna));
     var prng = std.rand.DefaultPrng.init(pumpkin_seed);
     const random = prng.random();
 
@@ -309,7 +309,7 @@ fn benchmark(N: usize) !void {
 
     // Cosmetic function, number formatting
     var buffer: [16]u8 = undefined;
-    var len = pretty(N, &buffer, allocator);
+    const len = pretty(N, &buffer, allocator);
 
     // Print benchmark header
     try stdout.print("\n{s: >38}|", .{"HASHMAP BENCHMARK"});
@@ -340,7 +340,7 @@ fn pretty(N: usize, buffer: []u8, alloc: std.mem.Allocator) usize {
     var counter: u8 = 0;
 
     while (N_ > 0) : (counter += 1) {
-        var rem: u8 = @intCast(N_ % 10);
+        const rem: u8 = @intCast(N_ % 10);
         if (counter == 3) {
             stack.append(0x5F) catch unreachable;
             counter = 0;

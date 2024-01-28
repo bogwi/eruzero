@@ -164,7 +164,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
             var log: f32 = std.math.log2(@as(f32, @floatFromInt(size)));
             log = @round(log);
 
-            var best_limit = @as(u8, @intFromFloat(log)) -| 3;
+            const best_limit = @as(u8, @intFromFloat(log)) -| 3;
             if (best_limit <= self.dashboard.limit) return;
 
             self.dashboard.limit = best_limit;
@@ -187,7 +187,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
             var log: f32 = std.math.log2(@as(f32, @floatFromInt(self.count())));
             log = @round(log);
             // var best_limit: u8 = if (log > 3) @intFromFloat(log - 3) else 0;
-            var best_limit: u8 = @as(u8, @intFromFloat(log)) -| 3;
+            const best_limit: u8 = @as(u8, @intFromFloat(log)) -| 3;
             if (self.dashboard.limit == best_limit + 1) return;
 
             self.dashboard.limit = best_limit;
@@ -278,7 +278,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
         /// If you only need to update the entry, use `update()`.
         pub fn fetchPut(self: *Self, key: K, value: V) SizeError!?Entry {
             try self.dashboard.adjustSelf(self);
-            var itemPtr = self.getItemPtr(key);
+            const itemPtr = self.getItemPtr(key);
 
             // catch possible null
             if (itemPtr) |item| {
@@ -296,7 +296,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
         ///
         /// If you need to return the previous entry after the update, use `fetchPut()`.
         pub fn update(self: *Self, key: K, value: V) bool {
-            var valuePtr = self.getPtr(key);
+            const valuePtr = self.getPtr(key);
 
             // catch possible null
             if (valuePtr) |value_| {
@@ -422,7 +422,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
         /// Removes an entry associated with the key from the map. Returns *true* upon
         /// success; *false*, if not such entry exist.
         pub fn remove(self: *Self, key: K) bool {
-            var itemPtr = self.getItemPtr(key);
+            const itemPtr = self.getItemPtr(key);
 
             // catch possible null
             if (itemPtr) |item| {
@@ -437,7 +437,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
         /// Removes an entry associated with the key from the map,
         /// returning it back to the user.  If no such entry exist, returns *null*.
         pub fn fetchRemove(self: *Self, key: K) ?Entry {
-            var itemPtr = self.getItemPtr(key);
+            const itemPtr = self.getItemPtr(key);
 
             // catch possible null
             if (itemPtr) |item| {
@@ -464,7 +464,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
 
                 while (it.idx < SIZE[it.map.dashboard.limit]) : (it.idx += 1) {
                     var item = &it.map.dashboard.table.items[it.idx];
-                    var tag = activeTag(item.*);
+                    const tag = activeTag(item.*);
                     if (tag == .alive) {
                         it.idx += 1;
                         return .{ .key_ptr = &item.alive.key, .value_ptr = &item.alive.value };
@@ -534,7 +534,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
             var copy = try smaller.clone();
 
             while (smaller_iter.next()) |entry| {
-                var key = entry.key_ptr;
+                const key = entry.key_ptr;
                 if (!bigger.contains(key.*))
                     assert(copy.remove(key.*));
             }
@@ -583,7 +583,7 @@ pub fn eruZero(comptime K: type, comptime V: type) type {
             var copy = try self.clone();
 
             while (self_iter.next()) |entry| {
-                var key = entry.key_ptr;
+                const key = entry.key_ptr;
                 if (other.contains(key.*))
                     assert(copy.remove(key.*));
             }
@@ -651,10 +651,25 @@ test "eruZero: basics" {
         keys[i] = key;
     }
 
+    //
+    // ZIG 0.12.0-dev.1830+779b8e259 does not pass the last test. ZIG 0.11.0 does!
+    // Multiple key.* make the key equal to zero 0.
+    // Test was modified to have only one deref.
+    //
+    // for (keys[16..]) |key| {
+    //     if (key.* < 64) {
+    //         try expect(map.remove(key.*));
+    //     } else try expect(map.fetchRemove(key.*).?.value == key.* * 4);
+    // }
+
     for (keys[16..]) |key| {
-        if (key.* < 64) {
-            try expect(map.remove(key.*));
-        } else try expect(map.fetchRemove(key.*).?.value == key.* * 4);
+        const key_deref = key.*;
+        if (key_deref < 64) {
+            try expect(map.remove(key_deref));
+        } else {
+            const value = map.fetchRemove(key_deref).?.value;
+            try expect(value == key_deref * 4);
+        }
     }
 
     try expect(map.count() == 0);
@@ -1005,7 +1020,7 @@ test "eruZero: reduceMemoryImprint" {
     defer map.deinit();
 
     var int: u16 = 0;
-    var ceil: u16 = 1000;
+    const ceil: u16 = 1000;
     var init_capacity: u64 = 0;
 
     while (int < ceil) : (int += 1) {
@@ -1165,8 +1180,8 @@ test "eruZero: hashing tagged union keys; iterator" {
 
     var i: i32 = 11;
     while (i < 256) : (i += 1) {
-        var signed = Payload{ .signed = 0 - @mod(i, 11) };
-        var boolean = Payload{ .boolean = (@mod(i, 2) == 0) };
+        const signed = Payload{ .signed = 0 - @mod(i, 11) };
+        const boolean = Payload{ .boolean = (@mod(i, 2) == 0) };
 
         try map.put(signed, i);
         try map.put(boolean, i);
@@ -1184,7 +1199,7 @@ test "eruZero: hashing tagged union keys; iterator" {
 
     var it = map.iterator();
     while (it.next()) |item| {
-        var tag = activeTag(item.key_ptr.*);
+        const tag = activeTag(item.key_ptr.*);
         switch (tag) {
             .signed => result.signed += 1,
             .boolean => result.booleans += 1,
@@ -1197,8 +1212,8 @@ test "eruZero: hashing tagged union keys; iterator" {
 
     i = 11;
     while (i > 0) : (i -= 1) {
-        var signed = Payload{ .signed = 0 - @mod(i, 11) };
-        var boolean = Payload{ .boolean = (@mod(i, 2) == 0) };
+        const signed = Payload{ .signed = 0 - @mod(i, 11) };
+        const boolean = Payload{ .boolean = (@mod(i, 2) == 0) };
 
         if (map.remove(boolean)) {
             try expect(i > 9);
@@ -1219,9 +1234,9 @@ test "eruZero: vanishing vectors" {
     var i: u8 = 0;
 
     while (i < 100) : (i += 1) {
-        var key = @Vector(4, u8){ i % 5, (i + 1) % 5, (i + 2) % 5, (i + 3) % 5 };
+        const key = @Vector(4, u8){ i % 5, (i + 1) % 5, (i + 2) % 5, (i + 3) % 5 };
         try map.put(key, key);
-        var key2 = map.get(key).? + key;
+        const key2 = map.get(key).? + key;
         try map.put(key2, key);
         try expect(map.remove(map.fetchRemove(key2).?.value));
     }
